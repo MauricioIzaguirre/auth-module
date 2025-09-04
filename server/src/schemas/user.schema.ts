@@ -23,6 +23,7 @@ const baseUserSchema = z.object({
     .refine(
       val => {
         const domain = val.split('@')[1]
+        if (!domain) return false
         const suspiciousDomains = ['10minutemail.com', 'guerrillamail.com', 'tempmail.org']
         return !suspiciousDomains.includes(domain)
       },
@@ -33,8 +34,10 @@ const baseUserSchema = z.object({
     .min(8, 'La contraseña debe tener al menos 8 caracteres')
     .max(128, 'La contraseña no puede tener más de 128 caracteres')
     .refine(
-      val => ValidationUtils.validatePassword(val).isValid,
-      val => ValidationUtils.validatePassword(val).errors.join(', ')
+      (val: string) => ValidationUtils.validatePassword(val).isValid,
+      (val: string) => ({
+        message: ValidationUtils.validatePassword(val).errors.join(', ')
+      })
     ),
 
   firstName: z.string()
@@ -83,8 +86,10 @@ export const changePasswordSchema = z.object({
     .min(8, 'La nueva contraseña debe tener al menos 8 caracteres')
     .max(128, 'La nueva contraseña no puede tener más de 128 caracteres')
     .refine(
-      val => ValidationUtils.validatePassword(val).isValid,
-      val => ValidationUtils.validatePassword(val).errors.join(', ')
+      (val: string) => ValidationUtils.validatePassword(val).isValid,
+      (val: string) => ({
+        message: ValidationUtils.validatePassword(val).errors.join(', ')
+      })
     ),
   confirmNewPassword: z.string()
 }).refine(
@@ -108,8 +113,10 @@ export const resetPasswordSchema = z.object({
     .min(8, 'La contraseña debe tener al menos 8 caracteres')
     .max(128, 'La contraseña no puede tener más de 128 caracteres')
     .refine(
-      val => ValidationUtils.validatePassword(val).isValid,
-      val => ValidationUtils.validatePassword(val).errors.join(', ')
+      (val: string) => ValidationUtils.validatePassword(val).isValid,
+      (val: string) => ({
+        message: ValidationUtils.validatePassword(val).errors.join(', ')
+      })
     ),
   confirmNewPassword: z.string()
 }).refine(

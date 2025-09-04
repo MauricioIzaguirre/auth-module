@@ -139,7 +139,7 @@ export const rolePermissionConfigSchema = z.object({
   overrideInheritance: z.boolean().default(false)
 })
 
-// Schema para validación de acceso a recurso
+// Schema para validación de acceso a recurso - CORREGIDO
 export const resourceAccessSchema = z.object({
   userId: z.string().uuid('ID de usuario debe ser un UUID válido'),
   resource: z.string()
@@ -151,7 +151,7 @@ export const resourceAccessSchema = z.object({
     .max(50, 'La acción no puede tener más de 50 caracteres')
     .regex(/^[a-z_]+$/, 'La acción solo puede contener letras minúsculas y guiones bajos'),
   resourceId: z.string().uuid().optional(),
-  context: z.record(z.any()).optional()
+  context: z.record(z.string(), z.any()).optional() // CORREGIDO: especificar key y value types
 })
 
 // Funciones de validación exportadas

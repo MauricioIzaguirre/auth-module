@@ -441,10 +441,6 @@ export class ValidationUtils {
     }
   }
 
-  private static validateUUID(uuid: string): boolean {
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-    return uuidRegex.test(uuid)
-  }
 
   /**
    * Valida parámetros de paginación
@@ -501,29 +497,30 @@ export class ValidationUtils {
       return { isValid: false, resource: '', action: '', errors }
     }
 
-    const [resource, action] = parts
+    const resource = parts[0]?.trim()
+    const action = parts[1]?.trim()
 
-    if (!resource || resource.trim().length === 0) {
+    if (!resource || resource.length === 0) {
       errors.push('El recurso no puede estar vacío')
     }
 
-    if (!action || action.trim().length === 0) {
+    if (!action || action.length === 0) {
       errors.push('La acción no puede estar vacía')
     }
 
-    // Validar formato de caracteres
-    if (!/^[a-z_]+$/.test(resource)) {
+    // Validar formato de caracteres solo si resource y action están definidos
+    if (resource && !/^[a-z_]+$/.test(resource)) {
       errors.push('El recurso solo puede contener letras minúsculas y guiones bajos')
     }
 
-    if (!/^[a-z_]+$/.test(action)) {
+    if (action && !/^[a-z_]+$/.test(action)) {
       errors.push('La acción solo puede contener letras minúsculas y guiones bajos')
     }
 
     return {
       isValid: errors.length === 0,
-      resource: resource.trim(),
-      action: action.trim(),
+      resource: resource || '',
+      action: action || '',
       errors
     }
   }

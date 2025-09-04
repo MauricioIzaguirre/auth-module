@@ -27,7 +27,7 @@ export class CryptoUtils {
    * Genera un token seguro para verificación de email, reset de password, etc.
    */
   static generateSecureToken(length: number = 32): string {
-    return crypto.randomBytes(length).toString('urlsafe-base64')
+    return crypto.randomBytes(length).toString('base64url')
   }
 
   /**
@@ -55,7 +55,7 @@ export class CryptoUtils {
     const derivedKey = await this.deriveKey(key, salt.toString('hex'))
     const iv = crypto.randomBytes(this.IV_LENGTH)
     
-    const cipher = crypto.createCipher(this.ALGORITHM, derivedKey)
+    const cipher = crypto.createCipheriv(this.ALGORITHM, derivedKey, iv)
     cipher.setAAD(Buffer.from('auth-module', 'utf8'))
     
     let encrypted = cipher.update(plaintext, 'utf8', 'hex')
@@ -81,8 +81,9 @@ export class CryptoUtils {
     salt: string
   }, key: string): Promise<string> {
     const derivedKey = await this.deriveKey(key, encryptedData.salt)
+    const iv = Buffer.from(encryptedData.iv, 'hex')
     
-    const decipher = crypto.createDecipher(this.ALGORITHM, derivedKey)
+    const decipher = crypto.createDecipheriv(this.ALGORITHM, derivedKey, iv)
     decipher.setAAD(Buffer.from('auth-module', 'utf8'))
     decipher.setAuthTag(Buffer.from(encryptedData.tag, 'hex'))
     
@@ -206,8 +207,14 @@ export class CryptoUtils {
    * Verifica hash constante en tiempo
    */
   static verifyConstantTimeHash(input: string, hash: string): boolean {
-    const [storedHash, salt] = hash.split(':')
-    const inputHash = crypto.scryptSync(input, Buffer.from(salt, 'hex'), 64).toString('hex')
+    const hashParts = hash.split(':')
+    if (hashParts.length !== 2) return false
+    
+    const [storedHash, saltHex] = hashParts
+    if (!storedHash || !saltHex) return false
+    
+    const salt = Buffer.from(saltHex, 'hex')
+    const inputHash = crypto.scryptSync(input, salt, 64).toString('hex')
     return this.secureCompare(inputHash, storedHash)
   }
 
