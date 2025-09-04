@@ -1,6 +1,8 @@
-import { DatabaseConfig, DatabaseType } from "@/types/database.types"
+// server/src/config/database.ts
+import { Pool, PoolConfig } from 'pg'
+import { logger } from '../utils/logger'
 
-interface PostgreSQLConfig {
+export interface DatabaseConfig {
   host: string
   port: number
   username: string
@@ -11,32 +13,11 @@ interface PostgreSQLConfig {
   poolMax?: number
   connectionTimeoutMillis?: number
   idleTimeoutMillis?: number
+  maxUses?: number
+  allowExitOnIdle?: boolean
 }
 
-interface MySQLConfig {
-  host: string
-  port: number
-  user: string
-  password: string
-  database: string
-  ssl?: boolean
-  connectionLimit?: number
-  acquireTimeout?: number
-  timeout?: number
-}
-
-interface MongoDBConfig {
-  uri: string
-  options?: {
-    maxPoolSize?: number
-    serverSelectionTimeoutMS?: number
-    socketTimeoutMS?: number
-    retryWrites?: boolean
-    w?: string | number
-  }
-}
-
-const getPostgreSQLConfig = (): PostgreSQLConfig => ({
+const getDatabaseConfig = (): DatabaseConfig => ({
   host: process.env.POSTGRES_HOST || 'localhost',
   port: parseInt(process.env.POSTGRES_PORT || '5432'),
   username: process.env.POSTGRES_USER || 'postgres',
@@ -46,75 +27,159 @@ const getPostgreSQLConfig = (): PostgreSQLConfig => ({
   poolMin: parseInt(process.env.POSTGRES_POOL_MIN || '2'),
   poolMax: parseInt(process.env.POSTGRES_POOL_MAX || '10'),
   connectionTimeoutMillis: parseInt(process.env.POSTGRES_CONNECTION_TIMEOUT || '5000'),
-  idleTimeoutMillis: parseInt(process.env.POSTGRES_IDLE_TIMEOUT || '30000')
+  idleTimeoutMillis: parseInt(process.env.POSTGRES_IDLE_TIMEOUT || '30000'),
+  maxUses: parseInt(process.env.POSTGRES_MAX_USES || '7500'),
+  allowExitOnIdle: process.env.POSTGRES_ALLOW_EXIT_ON_IDLE !== 'false'
 })
 
-const getMySQLConfig = (): MySQLConfig => ({
-  host: process.env.MYSQL_HOST || 'localhost',
-  port: parseInt(process.env.MYSQL_PORT || '3306'),
-  user: process.env.MYSQL_USER || 'root',
-  password: process.env.MYSQL_PASSWORD || '',
-  database: process.env.MYSQL_DB || 'auth_db',
-  ssl: process.env.MYSQL_SSL === 'true',
-  connectionLimit: parseInt(process.env.MYSQL_CONNECTION_LIMIT || '10'),
-  acquireTimeout: parseInt(process.env.MYSQL_ACQUIRE_TIMEOUT || '60000'),
-  timeout: parseInt(process.env.MYSQL_TIMEOUT || '60000')
-})
+class DatabaseConnection {
+  private static instance: DatabaseConnection
+  private pool: Pool | null = null
 
-const getMongoDBConfig = (): MongoDBConfig => {
-  const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/auth_db'
-  
-  return {
-    uri,
-    options: {
-      maxPoolSize: parseInt(process.env.MONGODB_MAX_POOL_SIZE || '10'),
-      serverSelectionTimeoutMS: parseInt(process.env.MONGODB_SERVER_SELECTION_TIMEOUT || '5000'),
-      socketTimeoutMS: parseInt(process.env.MONGODB_SOCKET_TIMEOUT || '45000'),
-      retryWrites: process.env.MONGODB_RETRY_WRITES !== 'false',
-      w: process.env.MONGODB_WRITE_CONCERN || 'majority'
+  private constructor() {}
+
+  static getInstance(): DatabaseConnection {
+    if (!DatabaseConnection.instance) {
+      DatabaseConnection.instance = new DatabaseConnection()
+    }
+    return DatabaseConnection.instance
+  }
+
+  async connect(): Promise<Pool> {
+    if (this.pool) {
+      return this.pool
+    }
+
+    const config = getDatabaseConfig()
+
+    const poolConfig: PoolConfig = {
+      host: config.host,
+      port: config.port,
+      user: config.username,
+      password: config.password,
+      database: config.database,
+      ssl: config.ssl ? { rejectUnauthorized: false } : false,
+      min: config.poolMin,
+      max: config.poolMax,
+      connectionTimeoutMillis: config.connectionTimeoutMillis,
+      idleTimeoutMillis: config.idleTimeoutMillis,
+      maxUses: config.maxUses,
+      allowExitOnIdle: config.allowExitOnIdle
+    }
+
+    this.pool = new Pool(poolConfig)
+
+    // Event listeners
+    this.pool.on('connect', () => {
+      logger.info('Database connection established')
+    })
+
+    this.pool.on('error', (err) => {
+      logger.error('Database connection error', err)
+    })
+
+    this.pool.on('remove', () => {
+      logger.info('Database connection removed from pool')
+    })
+
+    // Test connection
+    try {
+      const client = await this.pool.connect()
+      await client.query('SELECT NOW()')
+      client.release()
+      logger.info('Database connection test successful')
+    } catch (error) {
+      logger.error('Database connection test failed', error as Error)
+      throw new Error('Failed to connect to database')
+    }
+
+    return this.pool
+  }
+
+  async getPool(): Promise<Pool> {
+    if (!this.pool) {
+      return await this.connect()
+    }
+    return this.pool
+  }
+
+  async query(text: string, params?: any[]): Promise<any> {
+    const pool = await this.getPool()
+    const start = Date.now()
+    
+    try {
+      const result = await pool.query(text, params)
+      const duration = Date.now() - start
+      
+      logger.debug('Database query executed', {
+        query: text,
+        duration,
+        rows: result.rows.length
+      })
+      
+      return result
+    } catch (error) {
+      const duration = Date.now() - start
+      logger.error('Database query failed', error as Error, {
+        query: text,
+        duration,
+        params: params?.length
+      })
+      throw error
+    }
+  }
+
+  async transaction<T>(callback: (client: any) => Promise<T>): Promise<T> {
+    const pool = await this.getPool()
+    const client = await pool.connect()
+    
+    try {
+      await client.query('BEGIN')
+      const result = await callback(client)
+      await client.query('COMMIT')
+      return result
+    } catch (error) {
+      await client.query('ROLLBACK')
+      throw error
+    } finally {
+      client.release()
+    }
+  }
+
+  async healthCheck(): Promise<boolean> {
+    try {
+      const result = await this.query('SELECT 1 as health')
+      return result.rows.length > 0
+    } catch {
+      return false
+    }
+  }
+
+  async close(): Promise<void> {
+    if (this.pool) {
+      await this.pool.end()
+      this.pool = null
+      logger.info('Database connection pool closed')
     }
   }
 }
 
-export const getDatabaseConfig = (): DatabaseConfig => {
-  const dbType: DatabaseType = (process.env.DATABASE_TYPE as DatabaseType) || 'postgresql'
-  
-  switch (dbType) {
-    case 'postgresql':
-      return {
-        type: 'postgresql',
-        config: getPostgreSQLConfig()
-      }
-    case 'mysql':
-      return {
-        type: 'mysql',
-        config: getMySQLConfig()
-      }
-    case 'mongodb':
-      return {
-        type: 'mongodb',
-        config: getMongoDBConfig()
-      }
-    default:
-      throw new Error(`Unsupported database type: ${dbType}`)
-  }
-}
+export const db = DatabaseConnection.getInstance()
 
 export const validateDatabaseConfig = (config: DatabaseConfig): boolean => {
-  switch (config.type) {
-    case 'postgresql': {
-      const pgConfig = config.config as PostgreSQLConfig
-      return !!(pgConfig.host && pgConfig.port && pgConfig.username && pgConfig.database)
-    }
-    case 'mysql': {
-      const mysqlConfig = config.config as MySQLConfig
-      return !!(mysqlConfig.host && mysqlConfig.port && mysqlConfig.user && mysqlConfig.database)
-    }
-    case 'mongodb': {
-      const mongoConfig = config.config as MongoDBConfig
-      return !!(mongoConfig.uri)
-    }
-    default:
-      return false
+  if (!config.host || !config.port || !config.username || !config.database) {
+    throw new Error('Missing required database configuration')
   }
+
+  if (config.port < 1 || config.port > 65535) {
+    throw new Error('Invalid database port')
+  }
+
+  if (config.poolMin && config.poolMax && config.poolMin > config.poolMax) {
+    throw new Error('Pool min cannot be greater than pool max')
+  }
+
+  return true
 }
+
+export { getDatabaseConfig }
