@@ -157,6 +157,45 @@ export class EmailService {
     }
   }
 
+  async sendSecurityAlert(email: string, name: string, event: string, ipAddress?: string, userAgent?: string): Promise<void> {
+    try {
+      const html = this.generateSecurityAlertTemplate(name, event, ipAddress, userAgent)
+      
+      await this.transporter.sendMail({
+        from: `"${this.config.from.name}" <${this.config.from.email}>`,
+        to: email,
+        subject: '🚨 Alerta de seguridad - Clínica Oftalmológica',
+        html
+      })
+
+      logger.info('Security alert sent', { email, event, ipAddress })
+
+    } catch (error) {
+      logger.error('Failed to send security alert', error as Error, { email, event })
+      // Don't throw error for notification failures
+    }
+  }
+
+  async sendAccountLockoutNotification(email: string, name: string, unlockTime: Date): Promise<void> {
+    try {
+      const html = this.generateAccountLockoutTemplate(name, unlockTime)
+      
+      await this.transporter.sendMail({
+        from: `"${this.config.from.name}" <${this.config.from.email}>`,
+        to: email,
+        subject: '🔒 Cuenta bloqueada - Clínica Oftalmológica',
+        html
+      })
+
+      logger.info('Account lockout notification sent', { email, unlockTime })
+
+    } catch (error) {
+      logger.error('Failed to send account lockout notification', error as Error, { email })
+      // Don't throw error for notification failures
+    }
+  }
+
+  // Template generators
   private generateEmailVerificationTemplate(verificationUrl: string, name: string): string {
     return `
     <!DOCTYPE html>
@@ -451,4 +490,366 @@ export class EmailService {
     `
   }
 
-  private generatePasswordChangeTemplate(name: string,
+  private generatePasswordChangeTemplate(name: string, ipAddress?: string): string {
+    const locationInfo = ipAddress ? `desde la dirección IP: ${ipAddress}` : 'desde una ubicación desconocida'
+    
+    return `
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Contraseña cambiada</title>
+        <style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+                line-height: 1.6;
+                color: #333;
+                background-color: #f4f4f4;
+                margin: 0;
+                padding: 0;
+            }
+            .container {
+                max-width: 600px;
+                margin: 0 auto;
+                background: #ffffff;
+                border-radius: 8px;
+                overflow: hidden;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            }
+            .header {
+                background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+                color: white;
+                padding: 2rem;
+                text-align: center;
+            }
+            .header h1 {
+                margin: 0;
+                font-size: 1.8rem;
+            }
+            .content {
+                padding: 2rem;
+            }
+            .footer {
+                background: #f8f9fa;
+                padding: 1rem 2rem;
+                text-align: center;
+                color: #666;
+                font-size: 0.9rem;
+            }
+            .security-info {
+                background: #e8f5e8;
+                border: 1px solid #c3e6c3;
+                padding: 1rem;
+                border-radius: 4px;
+                margin: 1rem 0;
+            }
+            .warning {
+                background: #fff3cd;
+                border: 1px solid #ffeaa7;
+                padding: 1rem;
+                border-radius: 4px;
+                margin: 1rem 0;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>🔑 Contraseña Cambiada</h1>
+            </div>
+            <div class="content">
+                <h2>Hola ${name},</h2>
+                <p>Te confirmamos que tu contraseña ha sido cambiada exitosamente.</p>
+                
+                <div class="security-info">
+                    <strong>✅ Detalles del cambio:</strong>
+                    <ul>
+                        <li><strong>Fecha:</strong> ${new Date().toLocaleDateString('es-ES', { 
+                          year: 'numeric', 
+                          month: 'long', 
+                          day: 'numeric', 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        })}</li>
+                        <li><strong>Ubicación:</strong> ${locationInfo}</li>
+                    </ul>
+                </div>
+                
+                <div class="warning">
+                    <strong>⚠️ ¿No fuiste tú?</strong>
+                    <p>Si no realizaste este cambio, tu cuenta podría estar comprometida. Contacta inmediatamente con nuestro equipo de soporte.</p>
+                </div>
+                
+                <p><strong>Recomendaciones de seguridad:</strong></p>
+                <ul>
+                    <li>Mantén tu contraseña segura y no la compartas</li>
+                    <li>Utiliza contraseñas únicas para cada servicio</li>
+                    <li>Habilita la autenticación de dos factores si está disponible</li>
+                    <li>Revisa regularmente la actividad de tu cuenta</li>
+                </ul>
+            </div>
+            <div class="footer">
+                <p>Si tienes dudas, contacta con soporte: soporte@clinica.com</p>
+                <p>&copy; 2024 Clínica Oftalmológica. Todos los derechos reservados.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    `
+  }
+
+  private generateSecurityAlertTemplate(name: string, event: string, ipAddress?: string, userAgent?: string): string {
+    return `
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Alerta de seguridad</title>
+        <style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+                line-height: 1.6;
+                color: #333;
+                background-color: #f4f4f4;
+                margin: 0;
+                padding: 0;
+            }
+            .container {
+                max-width: 600px;
+                margin: 0 auto;
+                background: #ffffff;
+                border-radius: 8px;
+                overflow: hidden;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            }
+            .header {
+                background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+                color: white;
+                padding: 2rem;
+                text-align: center;
+            }
+            .header h1 {
+                margin: 0;
+                font-size: 1.8rem;
+            }
+            .content {
+                padding: 2rem;
+            }
+            .footer {
+                background: #f8f9fa;
+                padding: 1rem 2rem;
+                text-align: center;
+                color: #666;
+                font-size: 0.9rem;
+            }
+            .alert {
+                background: #ffebee;
+                border: 1px solid #ffcdd2;
+                padding: 1rem;
+                border-radius: 4px;
+                margin: 1rem 0;
+            }
+            .button {
+                display: inline-block;
+                background: #e74c3c;
+                color: white;
+                padding: 12px 30px;
+                text-decoration: none;
+                border-radius: 5px;
+                font-weight: bold;
+                margin: 1rem 0;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>🚨 Alerta de Seguridad</h1>
+            </div>
+            <div class="content">
+                <h2>Hola ${name},</h2>
+                <p>Hemos detectado actividad sospechosa en tu cuenta:</p>
+                
+                <div class="alert">
+                    <strong>📋 Detalles del evento:</strong>
+                    <ul>
+                        <li><strong>Evento:</strong> ${event}</li>
+                        <li><strong>Fecha:</strong> ${new Date().toLocaleDateString('es-ES', { 
+                          year: 'numeric', 
+                          month: 'long', 
+                          day: 'numeric', 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        })}</li>
+                        ${ipAddress ? `<li><strong>Dirección IP:</strong> ${ipAddress}</li>` : ''}
+                        ${userAgent ? `<li><strong>Navegador:</strong> ${userAgent}</li>` : ''}
+                    </ul>
+                </div>
+                
+                <p><strong>🔐 Acciones recomendadas:</strong></p>
+                <ul>
+                    <li>Si reconoces esta actividad, puedes ignorar este mensaje</li>
+                    <li>Si no reconoces esta actividad, cambia tu contraseña inmediatamente</li>
+                    <li>Revisa los accesos recientes a tu cuenta</li>
+                    <li>Contacta con soporte si necesitas ayuda</li>
+                </ul>
+                
+                <p style="text-align: center;">
+                    <a href="${this.config.templates.baseUrl}/auth/change-password" class="button">Cambiar contraseña</a>
+                </p>
+            </div>
+            <div class="footer">
+                <p>Si tienes dudas, contacta con soporte: soporte@clinica.com</p>
+                <p>&copy; 2024 Clínica Oftalmológica. Todos los derechos reservados.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    `
+  }
+
+  private generateAccountLockoutTemplate(name: string, unlockTime: Date): string {
+    return `
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Cuenta bloqueada</title>
+        <style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+                line-height: 1.6;
+                color: #333;
+                background-color: #f4f4f4;
+                margin: 0;
+                padding: 0;
+            }
+            .container {
+                max-width: 600px;
+                margin: 0 auto;
+                background: #ffffff;
+                border-radius: 8px;
+                overflow: hidden;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            }
+            .header {
+                background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+                color: white;
+                padding: 2rem;
+                text-align: center;
+            }
+            .header h1 {
+                margin: 0;
+                font-size: 1.8rem;
+            }
+            .content {
+                padding: 2rem;
+            }
+            .footer {
+                background: #f8f9fa;
+                padding: 1rem 2rem;
+                text-align: center;
+                color: #666;
+                font-size: 0.9rem;
+            }
+            .lockout-info {
+                background: #ffebee;
+                border: 1px solid #ffcdd2;
+                padding: 1rem;
+                border-radius: 4px;
+                margin: 1rem 0;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>🔒 Cuenta Bloqueada</h1>
+            </div>
+            <div class="content">
+                <h2>Hola ${name},</h2>
+                <p>Tu cuenta ha sido bloqueada temporalmente debido a múltiples intentos de inicio de sesión fallidos.</p>
+                
+                <div class="lockout-info">
+                    <strong>⏰ Información del bloqueo:</strong>
+                    <ul>
+                        <li><strong>Fecha de bloqueo:</strong> ${new Date().toLocaleDateString('es-ES', { 
+                          year: 'numeric', 
+                          month: 'long', 
+                          day: 'numeric', 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        })}</li>
+                        <li><strong>Desbloqueada automáticamente:</strong> ${unlockTime.toLocaleDateString('es-ES', { 
+                          year: 'numeric', 
+                          month: 'long', 
+                          day: 'numeric', 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        })}</li>
+                    </ul>
+                </div>
+                
+                <p><strong>🛡️ ¿Por qué pasó esto?</strong></p>
+                <p>Para proteger tu cuenta, la bloqueamos automáticamente después de varios intentos fallidos de inicio de sesión. Esto ayuda a prevenir accesos no autorizados.</p>
+                
+                <p><strong>📋 ¿Qué puedes hacer?</strong></p>
+                <ul>
+                    <li>Esperar hasta la hora de desbloqueo automático</li>
+                    <li>Si olvidaste tu contraseña, puedes restablecerla</li>
+                    <li>Contactar con soporte si crees que es un error</li>
+                </ul>
+                
+                <p><strong>🔐 Consejos de seguridad:</strong></p>
+                <ul>
+                    <li>Utiliza contraseñas seguras y únicas</li>
+                    <li>No compartas tus credenciales con nadie</li>
+                    <li>Mantén actualizada tu información de contacto</li>
+                </ul>
+            </div>
+            <div class="footer">
+                <p>Si necesitas ayuda inmediata: soporte@clinica.com | (555) 123-4567</p>
+                <p>&copy; 2024 Clínica Oftalmológica. Todos los derechos reservados.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    `
+  }
+
+  // Test email connection
+  async testConnection(): Promise<boolean> {
+    try {
+      await this.transporter.verify()
+      logger.info('Email service connection verified successfully')
+      return true
+    } catch (error) {
+      logger.error('Email service connection failed', error as Error)
+      return false
+    }
+  }
+
+  // Send test email
+  async sendTestEmail(to: string): Promise<void> {
+    try {
+      await this.transporter.sendMail({
+        from: `"${this.config.from.name}" <${this.config.from.email}>`,
+        to,
+        subject: 'Test Email - Clínica Oftalmológica',
+        html: `
+          <h2>✅ Email Service Test</h2>
+          <p>If you received this email, the email service is working correctly!</p>
+          <p><strong>Timestamp:</strong> ${new Date().toISOString()}</p>
+        `
+      })
+      
+      logger.info('Test email sent successfully', { to })
+    } catch (error) {
+      logger.error('Failed to send test email', error as Error, { to })
+      throw error
+    }
+  }
+}
