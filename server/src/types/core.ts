@@ -88,8 +88,8 @@ export type Environment = 'development' | 'testing' | 'staging' | 'production';
 /** Log levels */
 export type LogLevel = 'error' | 'warn' | 'info' | 'debug';
 
-/** HTTP status codes */
-export enum HttpStatus {
+/** HTTP status codes - CHANGED TO CONST ENUM FOR VALUE EXPORTS */
+export const enum HttpStatus {
   OK = 200,
   CREATED = 201,
   NO_CONTENT = 204,
@@ -104,8 +104,8 @@ export enum HttpStatus {
   SERVICE_UNAVAILABLE = 503
 }
 
-/** Generic error types */
-export enum ErrorType {
+/** Generic error types - CHANGED TO CONST ENUM FOR VALUE EXPORTS */
+export const enum ErrorType {
   VALIDATION_ERROR = 'VALIDATION_ERROR',
   AUTHENTICATION_ERROR = 'AUTHENTICATION_ERROR',
   AUTHORIZATION_ERROR = 'AUTHORIZATION_ERROR',
@@ -122,9 +122,9 @@ export interface AppError {
   readonly type: ErrorType;
   readonly message: string;
   readonly statusCode: HttpStatus;
-  readonly code?: string;
-  readonly details?: Record<string, unknown>;
-  readonly stack?: string;
+  readonly code?: string | undefined;
+  readonly details?: Record<string, unknown> | undefined;
+  readonly stack?: string | undefined;
 }
 
 /** Database connection configuration */

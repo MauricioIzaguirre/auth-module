@@ -2,8 +2,7 @@ import winston from 'winston';
 import { existsSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
 import { config } from './environment.js';
-import { LogLevel } from '../types/core';
-
+import type { LogLevel } from '../types/core.js';
 
 // Use Winston's built-in TransformableInfo type instead of custom LogInfo
 //type LogInfo = winston.LogEntry;
@@ -146,11 +145,11 @@ export const LOG_LEVELS: Record<string, LogLevel> = {
  * Enhanced logger interface with additional methods
  */
 export interface EnhancedLogger extends winston.Logger {
-  database: (message: string, meta?: Record<string, unknown>) => void;
-  auth: (message: string, meta?: Record<string, unknown>) => void;
-  security: (message: string, meta?: Record<string, unknown>) => void;
-  performance: (message: string, meta?: Record<string, unknown>) => void;
-  api: (message: string, meta?: Record<string, unknown>) => void;
+  database: (message: string, meta?: Record<string, unknown> | undefined) => void;
+  auth: (message: string, meta?: Record<string, unknown> | undefined) => void;
+  security: (message: string, meta?: Record<string, unknown> | undefined) => void;
+  performance: (message: string, meta?: Record<string, unknown> | undefined) => void;
+  api: (message: string, meta?: Record<string, unknown> | undefined) => void;
 }
 
 /**
@@ -162,35 +161,35 @@ const createEnhancedLogger = (): EnhancedLogger => {
   // Add custom logging methods
   (baseLogger as EnhancedLogger).database = (
     message: string, 
-    meta?: Record<string, unknown>
+    meta?: Record<string, unknown> | undefined
   ) => {
     baseLogger.info(message, { ...meta, component: 'database' });
   };
 
   (baseLogger as EnhancedLogger).auth = (
     message: string, 
-    meta?: Record<string, unknown>
+    meta?: Record<string, unknown> | undefined
   ) => {
     baseLogger.info(message, { ...meta, component: 'auth' });
   };
 
   (baseLogger as EnhancedLogger).security = (
     message: string, 
-    meta?: Record<string, unknown>
+    meta?: Record<string, unknown> | undefined
   ) => {
     baseLogger.warn(message, { ...meta, component: 'security' });
   };
 
   (baseLogger as EnhancedLogger).performance = (
     message: string, 
-    meta?: Record<string, unknown>
+    meta?: Record<string, unknown> | undefined
   ) => {
     baseLogger.info(message, { ...meta, component: 'performance' });
   };
 
   (baseLogger as EnhancedLogger).api = (
     message: string, 
-    meta?: Record<string, unknown>
+    meta?: Record<string, unknown> | undefined
   ) => {
     baseLogger.info(message, { ...meta, component: 'api' });
   };
@@ -235,7 +234,7 @@ export const createRequestLogger = () => {
  */
 export const logError = (
   error: Error, 
-  context?: Record<string, unknown>
+  context?: Record<string, unknown> | undefined
 ): void => {
   logger.error(error.message, {
     stack: error.stack,
@@ -250,7 +249,7 @@ export const logError = (
 export const logPerformance = (
   operation: string,
   startTime: number,
-  meta?: Record<string, unknown>
+  meta?: Record<string, unknown> | undefined
 ): void => {
   const duration = Date.now() - startTime;
   enhancedLogger.performance(`${operation} completed`, {
@@ -265,7 +264,7 @@ export const logPerformance = (
 export const logSecurityEvent = (
   event: string,
   severity: 'low' | 'medium' | 'high' | 'critical',
-  meta?: Record<string, unknown>
+  meta?: Record<string, unknown> | undefined
 ): void => {
   enhancedLogger.security(`Security event: ${event}`, {
     severity,
@@ -280,8 +279,8 @@ export const logSecurityEvent = (
 export const logDatabaseOperation = (
   operation: string,
   table: string,
-  duration?: number,
-  meta?: Record<string, unknown>
+  duration?: number | undefined,
+  meta?: Record<string, unknown> | undefined
 ): void => {
   enhancedLogger.database(`Database ${operation}`, {
     table,
@@ -295,8 +294,8 @@ export const logDatabaseOperation = (
  */
 export const logAuthEvent = (
   event: string,
-  userId?: string,
-  meta?: Record<string, unknown>
+  userId?: string | undefined,
+  meta?: Record<string, unknown> | undefined
 ): void => {
   enhancedLogger.auth(`Auth event: ${event}`, {
     userId,
@@ -310,13 +309,13 @@ export const logAuthEvent = (
  */
 export const createComponentLogger = (component: string) => {
   return {
-    error: (message: string, meta?: Record<string, unknown>) =>
+    error: (message: string, meta?: Record<string, unknown> | undefined) =>
       logger.error(message, { ...meta, component }),
-    warn: (message: string, meta?: Record<string, unknown>) =>
+    warn: (message: string, meta?: Record<string, unknown> | undefined) =>
       logger.warn(message, { ...meta, component }),
-    info: (message: string, meta?: Record<string, unknown>) =>
+    info: (message: string, meta?: Record<string, unknown> | undefined) =>
       logger.info(message, { ...meta, component }),
-    debug: (message: string, meta?: Record<string, unknown>) =>
+    debug: (message: string, meta?: Record<string, unknown> | undefined) =>
       logger.debug(message, { ...meta, component })
   };
 };
