@@ -1,7 +1,7 @@
 import { Pool, PoolClient, PoolConfig } from 'pg';
-import { logger } from './logger';
+import { logger } from './logger.js';
 import { env } from './environment.js';
-import type { DatabaseConfig } from '@/types/core.js';
+import type { DatabaseConfig } from '@/types/core';
 
 /**
  * PostgreSQL database configuration with connection pooling
@@ -97,24 +97,34 @@ class DatabaseManager {
   private setupPoolEventHandlers(): void {
     if (!this.pool) return;
 
-    this.pool.on('connect', (client: PoolClient) => {
+    // Connect event - client connects to database
+    this.pool.on('connect', (_client: PoolClient) => {
       logger.debug('New client connected to database pool');
     });
 
-    this.pool.on('acquire', (client: PoolClient) => {
+    // Acquire event - client is checked out from pool
+    this.pool.on('acquire', (_client: PoolClient) => {
       logger.debug('Client acquired from pool');
     });
 
-    this.pool.on('release', (client: PoolClient) => {
+    // Release event - client is returned to pool (error first parameter)
+    this.pool.on('release', (_error: Error | undefined, _client: PoolClient) => {
       logger.debug('Client released back to pool');
     });
 
-    this.pool.on('remove', (client: PoolClient) => {
+    // Remove event - client is removed from pool
+    this.pool.on('remove', (_client: PoolClient) => {
       logger.debug('Client removed from pool');
     });
 
+    // Error event - error occurred on idle client
     this.pool.on('error', (error: Error, client: PoolClient) => {
-      logger.error('Database pool error', { error, client: client?.processID });
+      logger.error('Database pool error', { 
+        error: error.message,
+        stack: error.stack,
+        // Cast client to any to access pg specific properties
+        clientProcessId: (client as any).processID
+      });
     });
   }
 
@@ -279,14 +289,14 @@ export class DatabaseHelpers {
     for (const [key, value] of Object.entries(filters)) {
       if (value !== undefined && value !== null) {
         if (Array.isArray(value)) {
-          const placeholders = value.map(() => `${paramIndex++}`).join(', ');
+          const placeholders = value.map(() => `$${paramIndex++}`).join(', ');
           conditions.push(`${key} IN (${placeholders})`);
           values.push(...value);
         } else if (typeof value === 'string' && value.includes('%')) {
-          conditions.push(`${key} ILIKE ${paramIndex++}`);
+          conditions.push(`${key} ILIKE $${paramIndex++}`);
           values.push(value);
         } else {
-          conditions.push(`${key} = ${paramIndex++}`);
+          conditions.push(`${key} = $${paramIndex++}`);
           values.push(value);
         }
       }
@@ -306,7 +316,7 @@ export class DatabaseHelpers {
   ): { clause: string; values: number[] } {
     const offset = (page - 1) * limit;
     return {
-      clause: `LIMIT ${paramIndex} OFFSET ${paramIndex + 1}`,
+      clause: `LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
       values: [limit, offset]
     };
   }
@@ -367,6 +377,6 @@ export class MigrationManager {
   static async isMigrationExecuted(name: string): Promise<boolean> {
     const query = 'SELECT COUNT(*) as count FROM migrations WHERE name = $1';
     const result = await database.query<{ count: string }>(query, [name]);
-    return parseInt(result[0]?.count || '0') > 0;
+    return parseInt(result[0]?.count ?? '0') > 0;
   }
 }

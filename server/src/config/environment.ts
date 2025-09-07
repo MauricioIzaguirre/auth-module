@@ -74,7 +74,7 @@ function validateEnvironment() {
     return environmentSchema.parse(process.env);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const errorMessages = error.errors.map(
+      const errorMessages = error.issues.map(
         (err: z.ZodIssue) => `${err.path.join('.')}: ${err.message}`
       );
       throw new Error(

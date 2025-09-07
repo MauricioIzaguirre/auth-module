@@ -1,24 +1,38 @@
 {
-  "name": "auth-module",
+  "name": "auth-module-2025",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Authentication module with server and client",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "server",
+    "client"
+  ],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "pnpm --filter server dev",
+    "build": "pnpm --filter server build",
+    "start": "pnpm --filter server start",
+    "lint": "pnpm --filter server lint",
+    "test": "pnpm --filter server test",
+    "clean": "pnpm --filter server clean",
+    "dev:server": "pnpm --filter server dev",
+    "dev:client": "pnpm --filter client dev",
+    "install:all": "pnpm install",
+    "build:all": "pnpm --filter server build && pnpm --filter client build"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "packageManager": "pnpm@10.14.0",
-  "dependencies": {
-    "nodemailer": "^7.0.6"
+  "keywords": [
+    "authentication",
+    "typescript",
+    "express",
+    "postgresql",
+    "rbac",
+    "monorepo"
+  ],
+  "author": "Mauricio Izaguirre Narnajo",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=10.15.0"
   },
-  "devDependencies": {
-    "@types/bcryptjs": "^3.0.0",
-    "@types/express": "^5.0.3",
-    "@types/jsonwebtoken": "^9.0.10",
-    "@types/node": "^24.3.1",
-    "@types/pg": "^8.15.5",
-    "typescript": "^5.9.2"
-  }
+  "packageManager": "pnpm@10.15.0"
 }

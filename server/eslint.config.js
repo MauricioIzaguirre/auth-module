@@ -15,7 +15,8 @@ export default [
       'node_modules/**/*',
       'coverage/**/*',
       '*.config.js',
-      '**/*.d.ts'
+      '**/*.d.ts',
+      'build/**/*'
     ]
   },
 

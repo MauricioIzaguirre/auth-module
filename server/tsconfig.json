@@ -45,11 +45,13 @@
       "@/utils/*": ["src/utils/*"],
       "@/seeds/*": ["src/seeds/*"],
       "@/tests/*": ["src/tests/*"]
-    }
+    },
+    "typeRoots": ["./node_modules/@types"]
   },
   "include": [
     "src/**/*",
-    "src/**/*.json"
+    "src/**/*.json",
+    "eslint.config.js"
   ],
   "exclude": [
     "node_modules",
