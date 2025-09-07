@@ -12,5 +12,13 @@
   "packageManager": "pnpm@10.14.0",
   "dependencies": {
     "nodemailer": "^7.0.6"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^3.0.0",
+    "@types/express": "^5.0.3",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^24.3.1",
+    "@types/pg": "^8.15.5",
+    "typescript": "^5.9.2"
   }
 }
