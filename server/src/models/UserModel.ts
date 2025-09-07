@@ -4,11 +4,12 @@ import { logger, logDatabaseOperation } from '@/config/logger.js';
 import type { 
   User, 
   PublicUser, 
-  CreateUserOptions,
-  UpdateProfileRequest,
+  CreateUserOptions
+} from '@/types/auth.js';
+import type {
   QueryParams,
   PaginatedResult 
-} from '@/types/auth';
+} from '@/types/core.js';
 
 /**
  * User repository implementing the Repository pattern
@@ -23,7 +24,7 @@ export class UserRepository {
     email: string;
     passwordHash: string;
     emailVerified?: boolean;
-    emailVerificationToken?: string;
+    emailVerificationToken?: string | null;
     isActive?: boolean;
   }, options: CreateUserOptions = {}): Promise<User> {
     const startTime = Date.now();
@@ -85,7 +86,7 @@ export class UserRepository {
       `;
 
       const result = await database.query<User>(query, [id]);
-      const user = result[0] || null;
+      const user = result[0] ?? null;
 
       logDatabaseOperation('SELECT', 'users', Date.now() - startTime, {
         userId: id,
@@ -117,7 +118,7 @@ export class UserRepository {
       `;
 
       const result = await database.query<User>(query, [username]);
-      const user = result[0] || null;
+      const user = result[0] ?? null;
 
       logDatabaseOperation('SELECT', 'users', Date.now() - startTime, {
         username,
@@ -149,7 +150,7 @@ export class UserRepository {
       `;
 
       const result = await database.query<User>(query, [email]);
-      const user = result[0] || null;
+      const user = result[0] ?? null;
 
       logDatabaseOperation('SELECT', 'users', Date.now() - startTime, {
         email,
@@ -183,7 +184,7 @@ export class UserRepository {
       `;
 
       const result = await database.query<User>(query, [token]);
-      const user = result[0] || null;
+      const user = result[0] ?? null;
 
       logDatabaseOperation('SELECT', 'users', Date.now() - startTime, {
         tokenFound: !!user,
@@ -219,7 +220,7 @@ export class UserRepository {
       }
 
       const setClause = Object.keys(filteredUpdates)
-        .map((key, index) => `${key} = ${index + 2}`)
+        .map((key, index) => `${key} = $${index + 2}`)
         .join(', ');
 
       const query = `
@@ -231,7 +232,7 @@ export class UserRepository {
 
       const values = [id, ...Object.values(filteredUpdates)];
       const result = await database.query<User>(query, values);
-      const user = result[0] || null;
+      const user = result[0] ?? null;
 
       logDatabaseOperation('UPDATE', 'users', Date.now() - startTime, {
         userId: id,
@@ -322,7 +323,7 @@ export class UserRepository {
       `;
 
       const result = await database.query<{ count: string }>(query, [username, email]);
-      const exists = parseInt(result[0]?.count || '0') > 0;
+      const exists = parseInt(result[0]?.count ?? '0') > 0;
 
       logDatabaseOperation('SELECT', 'users', Date.now() - startTime, {
         operation: 'existsByUsernameOrEmail',
@@ -363,7 +364,7 @@ export class UserRepository {
 
       // Add search filter
       if (search) {
-        baseQuery += ` AND (u.username ILIKE ${paramIndex} OR u.email ILIKE ${paramIndex})`;
+        baseQuery += ` AND (u.username ILIKE $${paramIndex} OR u.email ILIKE $${paramIndex})`;
         queryParams.push(`%${search}%`);
         paramIndex++;
       }
@@ -380,7 +381,7 @@ export class UserRepository {
       // Count total records
       const countQuery = `SELECT COUNT(*) as total ${baseQuery}`;
       const countResult = await database.query<{ total: string }>(countQuery, queryParams);
-      const total = parseInt(countResult[0]?.total || '0');
+      const total = parseInt(countResult[0]?.total ?? '0');
 
       // Build main query with pagination
       const orderClause = DatabaseHelpers.buildOrderClause(sortBy, sortOrder);
@@ -475,7 +476,7 @@ export class UserRepository {
       isActive: user.isActive,
       roles: [], // Will be populated by service layer
       createdAt: user.createdAt,
-      lastLoginAt: user.lastLoginAt
+      lastLoginAt: user.lastLoginAt ?? null
     };
   }
 
@@ -486,5 +487,154 @@ export class UserRepository {
     callback: (client: PoolClient) => Promise<T>
   ): Promise<T> {
     return await database.transaction(callback);
+  }
+
+  /**
+   * Get user profile with roles and permissions
+   */
+  static async findUserWithProfile(id: string): Promise<{
+    user: PublicUser;
+    roles: string[];
+    permissions: string[];
+  } | null> {
+    const startTime = Date.now();
+    
+    try {
+      const query = `
+        SELECT 
+          u.id, u.username, u.email, u.email_verified, u.is_active,
+          u.created_at, u.last_login_at,
+          COALESCE(
+            JSON_AGG(DISTINCT r.name) FILTER (WHERE r.name IS NOT NULL), 
+            '[]'
+          ) as roles,
+          COALESCE(
+            JSON_AGG(DISTINCT p.name) FILTER (WHERE p.name IS NOT NULL), 
+            '[]'
+          ) as permissions
+        FROM users u
+        LEFT JOIN user_roles ur ON u.id = ur.user_id 
+          AND (ur.expires_at IS NULL OR ur.expires_at > CURRENT_TIMESTAMP)
+        LEFT JOIN roles r ON ur.role_id = r.id AND r.deleted_at IS NULL
+        LEFT JOIN role_permissions rp ON r.id = rp.role_id
+        LEFT JOIN permissions p ON rp.permission_id = p.id AND p.deleted_at IS NULL
+        WHERE u.id = $1 AND u.deleted_at IS NULL
+        GROUP BY u.id, u.username, u.email, u.email_verified, u.is_active, u.created_at, u.last_login_at
+      `;
+
+      const result = await database.query<PublicUser & { 
+        roles: string[]; 
+        permissions: string[]; 
+      }>(query, [id]);
+      
+      const data = result[0];
+      
+      if (!data) {
+        logDatabaseOperation('SELECT', 'users', Date.now() - startTime, {
+          userId: id,
+          found: false
+        });
+        return null;
+      }
+
+      const user: PublicUser = {
+        id: data.id,
+        username: data.username,
+        email: data.email,
+        emailVerified: data.emailVerified,
+        isActive: data.isActive,
+        roles: data.roles,
+        createdAt: data.createdAt,
+        lastLoginAt: data.lastLoginAt ?? null
+      };
+
+      logDatabaseOperation('SELECT', 'users', Date.now() - startTime, {
+        userId: id,
+        found: true,
+        rolesCount: data.roles.length,
+        permissionsCount: data.permissions.length
+      });
+
+      return {
+        user,
+        roles: data.roles,
+        permissions: data.permissions
+      };
+    } catch (error) {
+      logger.error('Error finding user with profile', { error, userId: id });
+      throw error;
+    }
+  }
+
+  /**
+   * Check if username is available
+   */
+  static async isUsernameAvailable(username: string, excludeUserId?: string): Promise<boolean> {
+    const startTime = Date.now();
+    
+    try {
+      let query = `
+        SELECT COUNT(*) as count 
+        FROM users 
+        WHERE username = $1 AND deleted_at IS NULL
+      `;
+      
+      const params: unknown[] = [username];
+      
+      if (excludeUserId) {
+        query += ` AND id != $2`;
+        params.push(excludeUserId);
+      }
+
+      const result = await database.query<{ count: string }>(query, params);
+      const isAvailable = parseInt(result[0]?.count ?? '0') === 0;
+
+      logDatabaseOperation('SELECT', 'users', Date.now() - startTime, {
+        operation: 'isUsernameAvailable',
+        username,
+        available: isAvailable
+      });
+
+      return isAvailable;
+    } catch (error) {
+      logger.error('Error checking username availability', { error, username });
+      throw error;
+    }
+  }
+
+  /**
+   * Check if email is available
+   */
+  static async isEmailAvailable(email: string, excludeUserId?: string): Promise<boolean> {
+    const startTime = Date.now();
+    
+    try {
+      let query = `
+        SELECT COUNT(*) as count 
+        FROM users 
+        WHERE email = $1 AND deleted_at IS NULL
+      `;
+      
+      const params: unknown[] = [email];
+      
+      if (excludeUserId) {
+        query += ` AND id != $2`;
+        params.push(excludeUserId);
+      }
+
+      const result = await database.query<{ count: string }>(query, params);
+      const isAvailable = parseInt(result[0]?.count ?? '0') === 0;
+
+      logDatabaseOperation('SELECT', 'users', Date.now() - startTime, {
+        operation: 'isEmailAvailable',
+        email,
+        available: isAvailable
+      });
+
+      return isAvailable;
+    } catch (error) {
+      logger.error('Error checking email availability', { error, email });
+      throw error;
+    }
   }
 }

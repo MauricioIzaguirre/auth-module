@@ -1,6 +1,7 @@
 import { database } from '@/config/database.js';
 import { logger, logDatabaseOperation } from '@/config/logger.js';
-import type { Session, QueryParams, PaginatedResult } from '@/types/auth.js';
+import type { Session } from '@/types/auth.js';
+import type { QueryParams, PaginatedResult } from '@/types/core.js';
 
 /**
  * Session repository for managing user sessions
@@ -15,8 +16,8 @@ export class SessionRepository {
     token: string;
     refreshToken: string;
     expiresAt: Date;
-    ipAddress?: string;
-    userAgent?: string;
+    ipAddress?: string | null;
+    userAgent?: string | null;
   }): Promise<Session> {
     const startTime = Date.now();
     
@@ -79,7 +80,7 @@ export class SessionRepository {
       `;
 
       const result = await database.query<Session>(query, [token]);
-      const session = result[0] || null;
+      const session = result[0] ?? null;
 
       logDatabaseOperation('SELECT', 'sessions', Date.now() - startTime, {
         tokenFound: !!session,
@@ -112,7 +113,7 @@ export class SessionRepository {
       `;
 
       const result = await database.query<Session>(query, [refreshToken]);
-      const session = result[0] || null;
+      const session = result[0] ?? null;
 
       logDatabaseOperation('SELECT', 'sessions', Date.now() - startTime, {
         refreshTokenFound: !!session,
@@ -142,7 +143,7 @@ export class SessionRepository {
       `;
 
       const result = await database.query<Session>(query, [id]);
-      const session = result[0] || null;
+      const session = result[0] ?? null;
 
       logDatabaseOperation('SELECT', 'sessions', Date.now() - startTime, {
         sessionId: id,
@@ -208,7 +209,7 @@ export class SessionRepository {
 
       const values = [id, token, refreshToken, expiresAt];
       const result = await database.query<Session>(query, values);
-      const session = result[0] || null;
+      const session = result[0] ?? null;
 
       logDatabaseOperation('UPDATE', 'sessions', Date.now() - startTime, {
         sessionId: id,
@@ -387,11 +388,11 @@ export class SessionRepository {
       // Count total records
       const countQuery = `SELECT COUNT(*) as total ${baseQuery}`;
       const countResult = await database.query<{ total: string }>(countQuery, queryParams);
-      const total = parseInt(countResult[0]?.total || '0');
+      const total = parseInt(countResult[0]?.total ?? '0');
 
       // Build main query with pagination
       const orderClause = `ORDER BY s.${sortBy} ${sortOrder}`;
-      const paginationClause = `LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+      const paginationClause = `LIMIT ${paramIndex} OFFSET ${paramIndex + 1}`;
       const paginationValues = [limit, (page - 1) * limit];
 
       const selectQuery = `
@@ -466,10 +467,10 @@ export class SessionRepository {
       });
 
       return {
-        totalSessions: parseInt(stats?.total_sessions || '0'),
-        activeSessions: parseInt(stats?.active_sessions || '0'),
-        expiredSessions: parseInt(stats?.expired_sessions || '0'),
-        avgSessionDuration: parseFloat(stats?.avg_duration_seconds || '0')
+        totalSessions: parseInt(stats?.total_sessions ?? '0'),
+        activeSessions: parseInt(stats?.active_sessions ?? '0'),
+        expiredSessions: parseInt(stats?.expired_sessions ?? '0'),
+        avgSessionDuration: parseFloat(stats?.avg_duration_seconds ?? '0')
       };
     } catch (error) {
       logger.error('Error getting session statistics', { error });

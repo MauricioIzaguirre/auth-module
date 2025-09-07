@@ -1,13 +1,15 @@
 import { PoolClient } from 'pg';
-import { database, DatabaseHelpers } from '@/config/database.js';
-import { logger, logDatabaseOperation } from '@/config/logger.js';
+import { database, DatabaseHelpers } from '@/config/database';
+import { logger, logDatabaseOperation } from '@/config/logger';
 import type { 
   Role, 
   Permission, 
-  UserRole,
+  UserRole
+} from '@/types/auth';
+import type { 
   QueryParams,
   PaginatedResult 
-} from '@/types/auth.js';
+} from '@/types/core';
 
 /**
  * Role repository for RBAC system
@@ -76,20 +78,22 @@ export class RoleRepository {
                 'name', p.name,
                 'resource', p.resource,
                 'action', p.action,
-                'description', p.description
+                'description', p.description,
+                'created_at', p.created_at,
+                'updated_at', p.updated_at
               )
             ) FILTER (WHERE p.id IS NOT NULL),
             '[]'
           ) as permissions
         FROM roles r
         LEFT JOIN role_permissions rp ON r.id = rp.role_id
-        LEFT JOIN permissions p ON rp.permission_id = p.id
+        LEFT JOIN permissions p ON rp.permission_id = p.id AND p.deleted_at IS NULL
         WHERE r.id = $1 AND r.deleted_at IS NULL
         GROUP BY r.id, r.name, r.description, r.is_system, r.created_at, r.updated_at
       `;
 
       const result = await database.query<Role>(query, [id]);
-      const role = result[0] || null;
+      const role = result[0] ?? null;
 
       logDatabaseOperation('SELECT', 'roles', Date.now() - startTime, {
         roleId: id,
@@ -120,20 +124,22 @@ export class RoleRepository {
                 'name', p.name,
                 'resource', p.resource,
                 'action', p.action,
-                'description', p.description
+                'description', p.description,
+                'created_at', p.created_at,
+                'updated_at', p.updated_at
               )
             ) FILTER (WHERE p.id IS NOT NULL),
             '[]'
           ) as permissions
         FROM roles r
         LEFT JOIN role_permissions rp ON r.id = rp.role_id
-        LEFT JOIN permissions p ON rp.permission_id = p.id
+        LEFT JOIN permissions p ON rp.permission_id = p.id AND p.deleted_at IS NULL
         WHERE r.name = $1 AND r.deleted_at IS NULL
         GROUP BY r.id, r.name, r.description, r.is_system, r.created_at, r.updated_at
       `;
 
       const result = await database.query<Role>(query, [name]);
-      const role = result[0] || null;
+      const role = result[0] ?? null;
 
       logDatabaseOperation('SELECT', 'roles', Date.now() - startTime, {
         roleName: name,
@@ -181,7 +187,7 @@ export class RoleRepository {
       // Count total records
       const countQuery = `SELECT COUNT(*) as total ${baseQuery}`;
       const countResult = await database.query<{ total: string }>(countQuery, queryParams);
-      const total = parseInt(countResult[0]?.total || '0');
+      const total = parseInt(countResult[0]?.total ?? '0');
 
       // Build main query with pagination
       const orderClause = DatabaseHelpers.buildOrderClause(sortBy, sortOrder);
@@ -198,14 +204,16 @@ export class RoleRepository {
                 'name', p.name,
                 'resource', p.resource,
                 'action', p.action,
-                'description', p.description
+                'description', p.description,
+                'created_at', p.created_at,
+                'updated_at', p.updated_at
               )
             ) FILTER (WHERE p.id IS NOT NULL),
             '[]'
           ) as permissions
         ${baseQuery}
         LEFT JOIN role_permissions rp ON r.id = rp.role_id
-        LEFT JOIN permissions p ON rp.permission_id = p.id
+        LEFT JOIN permissions p ON rp.permission_id = p.id AND p.deleted_at IS NULL
         GROUP BY r.id, r.name, r.description, r.is_system, r.created_at, r.updated_at
         ${orderClause}
         ${paginationClause}
@@ -255,7 +263,9 @@ export class RoleRepository {
                 'name', p.name,
                 'resource', p.resource,
                 'action', p.action,
-                'description', p.description
+                'description', p.description,
+                'created_at', p.created_at,
+                'updated_at', p.updated_at
               )
             ) FILTER (WHERE p.id IS NOT NULL),
             '[]'
@@ -263,7 +273,7 @@ export class RoleRepository {
         FROM user_roles ur
         JOIN roles r ON ur.role_id = r.id
         LEFT JOIN role_permissions rp ON r.id = rp.role_id
-        LEFT JOIN permissions p ON rp.permission_id = p.id
+        LEFT JOIN permissions p ON rp.permission_id = p.id AND p.deleted_at IS NULL
         WHERE ur.user_id = $1 
           AND r.deleted_at IS NULL
           AND (ur.expires_at IS NULL OR ur.expires_at > CURRENT_TIMESTAMP)
@@ -427,7 +437,7 @@ export class RoleRepository {
       `;
 
       const result = await database.query<{ count: string }>(query, [userId, resource, action]);
-      const hasPermission = parseInt(result[0]?.count || '0') > 0;
+      const hasPermission = parseInt(result[0]?.count ?? '0') > 0;
 
       logDatabaseOperation('SELECT', 'permissions', Date.now() - startTime, {
         userId,
@@ -441,6 +451,15 @@ export class RoleRepository {
       logger.error('Error checking user permission', { error, userId, resource, action });
       throw error;
     }
+  }
+
+  /**
+   * Transaction helper for complex role operations
+   */
+  static async withTransaction<T>(
+    callback: (client: PoolClient) => Promise<T>
+  ): Promise<T> {
+    return await database.transaction(callback);
   }
 }
 
@@ -587,7 +606,7 @@ export class PermissionRepository {
 
       // Add search filter
       if (search) {
-        baseQuery += ` AND (p.name ILIKE ${paramIndex} OR p.resource ILIKE ${paramIndex} OR p.action ILIKE ${paramIndex})`;
+        baseQuery += ` AND (p.name ILIKE $${paramIndex} OR p.resource ILIKE $${paramIndex} OR p.action ILIKE $${paramIndex})`;
         queryParams.push(`%${search}%`);
         paramIndex++;
       }
@@ -595,7 +614,7 @@ export class PermissionRepository {
       // Count total records
       const countQuery = `SELECT COUNT(*) as total ${baseQuery}`;
       const countResult = await database.query<{ total: string }>(countQuery, queryParams);
-      const total = parseInt(countResult[0]?.total || '0');
+      const total = parseInt(countResult[0]?.total ?? '0');
 
       // Build main query with pagination
       const orderClause = DatabaseHelpers.buildOrderClause(sortBy, sortOrder);
@@ -650,7 +669,7 @@ export class PermissionRepository {
       `;
 
       const result = await database.query<Permission>(query, [resource, action]);
-      const permission = result[0] || null;
+      const permission = result[0] ?? null;
 
       logDatabaseOperation('SELECT', 'permissions', Date.now() - startTime, {
         resource,

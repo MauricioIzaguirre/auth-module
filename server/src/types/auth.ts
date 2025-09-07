@@ -1,4 +1,4 @@
-import type { DatabaseEntity, BaseEntity } from './core';
+import type { DatabaseEntity, BaseEntity } from './core.js';
 
 /** User entity structure */
 export interface User extends DatabaseEntity {
@@ -6,12 +6,12 @@ export interface User extends DatabaseEntity {
   readonly email: string;
   readonly passwordHash: string;
   readonly emailVerified: boolean;
-  readonly emailVerificationToken?: string | null;
-  readonly passwordResetToken?: string | null;
-  readonly passwordResetExpires?: Date | null;
-  readonly lastLoginAt?: Date | null;
+  readonly emailVerificationToken: string | null;
+  readonly passwordResetToken: string | null;
+  readonly passwordResetExpires: Date | null;
+  readonly lastLoginAt: Date | null;
   readonly loginAttempts: number;
-  readonly lockUntil?: Date | null;
+  readonly lockUntil: Date | null;
   readonly isActive: boolean;
   readonly profile?: UserProfile | null;
 }
@@ -19,12 +19,12 @@ export interface User extends DatabaseEntity {
 /** User profile information */
 export interface UserProfile extends BaseEntity {
   readonly userId: string;
-  readonly firstName?: string | null;
-  readonly lastName?: string | null;
-  readonly avatar?: string | null;
-  readonly phone?: string | null;
-  readonly dateOfBirth?: Date | null;
-  readonly address?: Address | null;
+  readonly firstName: string | null;
+  readonly lastName: string | null;
+  readonly avatar: string | null;
+  readonly phone: string | null;
+  readonly dateOfBirth: Date | null;
+  readonly address: Address | null;
   readonly preferences?: UserPreferences;
 }
 
@@ -55,7 +55,7 @@ export interface NotificationSettings {
 /** Role entity */
 export interface Role extends DatabaseEntity {
   readonly name: string;
-  readonly description?: string | null;
+  readonly description: string | null;
   readonly isSystem: boolean;
   readonly permissions: readonly Permission[];
 }
@@ -65,7 +65,7 @@ export interface Permission extends DatabaseEntity {
   readonly name: string;
   readonly resource: string;
   readonly action: string;
-  readonly description?: string | null;
+  readonly description: string | null;
 }
 
 /** User-Role relationship */
@@ -74,7 +74,7 @@ export interface UserRole extends BaseEntity {
   readonly roleId: string;
   readonly assignedBy: string;
   readonly assignedAt: Date;
-  readonly expiresAt?: Date | null;
+  readonly expiresAt: Date | null;
 }
 
 /** Session entity */
@@ -83,8 +83,8 @@ export interface Session extends DatabaseEntity {
   readonly token: string;
   readonly refreshToken: string;
   readonly expiresAt: Date;
-  readonly ipAddress?: string | null;
-  readonly userAgent?: string | null;
+  readonly ipAddress: string | null;
+  readonly userAgent: string | null;
   readonly isActive: boolean;
   readonly lastAccessedAt: Date;
 }
@@ -160,14 +160,14 @@ export interface PublicUser {
   readonly roles: readonly string[];
   readonly profile?: PublicUserProfile;
   readonly createdAt: Date;
-  readonly lastLoginAt?: Date | null;
+  readonly lastLoginAt: Date | null;
 }
 
 /** Public user profile (without sensitive information) */
 export interface PublicUserProfile {
-  readonly firstName?: string | null;
-  readonly lastName?: string | null;
-  readonly avatar?: string | null;
+  readonly firstName: string | null;
+  readonly lastName: string | null;
+  readonly avatar: string | null;
   readonly preferences?: UserPreferences;
 }
 
