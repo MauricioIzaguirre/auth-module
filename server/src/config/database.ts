@@ -1,7 +1,7 @@
 import { Pool, PoolClient, PoolConfig } from 'pg';
-import { logger } from './logger.js';
-import { env } from './environment.js';
-import type { DatabaseConfig } from '@/types/core';
+import { logger } from './logger';
+import { env } from './environment';
+import type { DatabaseConfig } from '../types/core';
 
 /**
  * PostgreSQL database configuration with connection pooling

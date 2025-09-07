@@ -1,36 +1,19 @@
 {
   "compilerOptions": {
-    "target": "ES2022",
+    /* Language and Environment */
+    "target": "ES2023",
+    "lib": ["ES2023"],
     "module": "ESNext",
     "moduleResolution": "Node",
-    "lib": ["ES2022"],
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "strict": true,
-    "noImplicitAny": true,
-    "strictNullChecks": true,
-    "strictFunctionTypes": true,
-    "noImplicitReturns": true,
-    "noImplicitThis": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "exactOptionalPropertyTypes": true,
-    "noUncheckedIndexedAccess": true,
-    "noImplicitOverride": true,
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
-    "forceConsistentCasingInFileNames": true,
-    "skipLibCheck": true,
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "removeComments": false,
-    "resolveJsonModule": true,
-    "experimentalDecorators": false,
-    "emitDecoratorMetadata": false,
     "allowImportingTsExtensions": false,
-    "isolatedModules": true,
+    "resolveJsonModule": true,
+    
+    /* Bundler mode */
+    "moduleDetection": "force",
+    "allowImportingTsExtensions": false,
     "verbatimModuleSyntax": false,
+    
+    /* Paths */
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
@@ -46,21 +29,73 @@
       "@/seeds/*": ["src/seeds/*"],
       "@/tests/*": ["src/tests/*"]
     },
-    "typeRoots": ["./node_modules/@types"]
+    
+    /* JavaScript Support */
+    "allowJs": false,
+    "checkJs": false,
+    
+    /* Emit */
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "removeComments": false,
+    "noEmit": false,
+    "importHelpers": true,
+    "downlevelIteration": true,
+    
+    /* Interop Constraints */
+    "isolatedModules": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    
+    /* Type Checking */
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
+    "useUnknownInCatchVariables": true,
+    "alwaysStrict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": false,
+    
+    /* Completeness */
+    "skipLibCheck": true,
+    
+    /* Advanced */
+    "experimentalDecorators": false,
+    "emitDecoratorMetadata": false,
+    
+    /* Node.js */
+    "typeRoots": ["./node_modules/@types", "./src/types"],
+    "types": ["node"]
   },
   "include": [
     "src/**/*",
-    "src/**/*.json",
-    "eslint.config.js"
+    "src/**/*.json"
   ],
   "exclude": [
     "node_modules",
     "dist",
     "**/*.test.ts",
-    "**/*.spec.ts"
+    "**/*.spec.ts",
+    "coverage",
+    "build"
   ],
   "ts-node": {
     "esm": true,
-    "files": true
+    "files": true,
+    "experimentalSpecifierResolution": "node"
   }
 }

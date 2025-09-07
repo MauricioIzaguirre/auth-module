@@ -1,6 +1,6 @@
 import { config as dotenvConfig } from 'dotenv';
 import { z } from 'zod';
-import type { Environment, LogLevel } from '@/types/core';
+import type { Environment, LogLevel } from '../types/core';
 
 // Load environment variables
 dotenvConfig();

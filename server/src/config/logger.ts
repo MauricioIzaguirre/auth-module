@@ -2,10 +2,11 @@ import winston from 'winston';
 import { existsSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
 import { config } from './environment.js';
-import type { LogLevel } from '@/types/core.js';
+import { LogLevel } from '../types/core';
+
 
 // Use Winston's built-in TransformableInfo type instead of custom LogInfo
-type LogInfo = winston.LogEntry;
+//type LogInfo = winston.LogEntry;
 
 /**
  * Custom log format for better readability
