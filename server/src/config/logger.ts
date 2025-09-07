@@ -1,8 +1,11 @@
 import winston from 'winston';
 import { existsSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
-import { config } from './environment';
-import type { LogLevel } from '@/types/core';
+import { config } from './environment.js';
+import type { LogLevel } from '@/types/core.js';
+
+// Use Winston's built-in TransformableInfo type instead of custom LogInfo
+type LogInfo = winston.LogEntry;
 
 /**
  * Custom log format for better readability
@@ -13,10 +16,11 @@ const customFormat = winston.format.combine(
   }),
   winston.format.errors({ stack: true }),
   winston.format.json(),
-  winston.format.printf(({ timestamp, level, message, ...meta }) => {
+  winston.format.printf((info) => {
+    const { timestamp, level, message, stack, ...meta } = info;
     const metaString = Object.keys(meta).length ? 
       `\n${JSON.stringify(meta, null, 2)}` : '';
-    return `[${timestamp}] ${level.toUpperCase()}: ${message}${metaString}`;
+    return `[${timestamp}] ${level.toUpperCase()}: ${String(message)}${metaString}`;
   })
 );
 
@@ -28,10 +32,11 @@ const consoleFormat = winston.format.combine(
   winston.format.timestamp({
     format: 'HH:mm:ss'
   }),
-  winston.format.printf(({ timestamp, level, message, ...meta }) => {
+  winston.format.printf((info) => {
+    const { timestamp, level, message, ...meta } = info;
     const metaString = Object.keys(meta).length ? 
       ` ${JSON.stringify(meta)}` : '';
-    return `[${timestamp}] ${level}: ${message}${metaString}`;
+    return `[${timestamp}] ${level}: ${String(message)}${metaString}`;
   })
 );
 

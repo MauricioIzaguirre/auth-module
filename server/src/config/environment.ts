@@ -1,9 +1,9 @@
-import { config } from 'dotenv';
+import { config as dotenvConfig } from 'dotenv';
 import { z } from 'zod';
-import type { Environment, LogLevel } from '@/types/core.js';
+import type { Environment, LogLevel } from '@/types/core';
 
 // Load environment variables
-config();
+dotenvConfig();
 
 /**
  * Environment variables validation schema
@@ -75,7 +75,7 @@ function validateEnvironment() {
   } catch (error) {
     if (error instanceof z.ZodError) {
       const errorMessages = error.errors.map(
-        (err) => `${err.path.join('.')}: ${err.message}`
+        (err: z.ZodIssue) => `${err.path.join('.')}: ${err.message}`
       );
       throw new Error(
         `Environment validation failed:\n${errorMessages.join('\n')}`
@@ -130,7 +130,7 @@ export interface EnvironmentConfig {
     readonly maxRequests: number;
   };
 
-  // Email
+  // Email (optional)
   readonly email?: {
     readonly host: string;
     readonly port: number;
@@ -193,15 +193,17 @@ export const config: EnvironmentConfig = {
     maxRequests: env.RATE_LIMIT_MAX_REQUESTS
   },
 
-  // Email (optional)
-  email: env.SMTP_HOST && env.SMTP_PORT && env.SMTP_USER && 
-         env.SMTP_PASSWORD && env.SMTP_FROM ? {
-    host: env.SMTP_HOST,
-    port: env.SMTP_PORT,
-    user: env.SMTP_USER,
-    password: env.SMTP_PASSWORD,
-    from: env.SMTP_FROM
-  } : undefined,
+  // Email (conditional assignment)
+  ...(env.SMTP_HOST && env.SMTP_PORT && env.SMTP_USER && 
+     env.SMTP_PASSWORD && env.SMTP_FROM ? {
+    email: {
+      host: env.SMTP_HOST,
+      port: env.SMTP_PORT,
+      user: env.SMTP_USER,
+      password: env.SMTP_PASSWORD,
+      from: env.SMTP_FROM
+    }
+  } : {}),
 
   // Logging
   logging: {
@@ -211,7 +213,7 @@ export const config: EnvironmentConfig = {
 
   // CORS
   cors: {
-    origins: env.CORS_ORIGIN.split(',').map(origin => origin.trim())
+    origins: env.CORS_ORIGIN.split(',').map((origin: string) => origin.trim())
   }
 };
 
@@ -268,9 +270,9 @@ export const validateConfiguration = (): void => {
     'DB_NAME',
     'DB_USER',
     'DB_PASSWORD'
-  ];
+  ] as const;
 
-  const missing = requiredConfigs.filter(key => !env[key as keyof typeof env]);
+  const missing = requiredConfigs.filter(key => !env[key]);
   
   if (missing.length > 0) {
     throw new Error(

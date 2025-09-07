@@ -1,5 +1,5 @@
 import { Pool, PoolClient, PoolConfig } from 'pg';
-import { logger } from './logger.js';
+import { logger } from './logger';
 import { env } from './environment.js';
 import type { DatabaseConfig } from '@/types/core.js';
 
